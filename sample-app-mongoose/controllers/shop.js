@@ -1,11 +1,12 @@
 const Product = require("../models/product");
+const Order = require("../models/orders");
 
 exports.getProducts = (req, res, next) => {
   //res.sendFile(path.join(__dirname, "../", "views", "shop.html"));
   // console.log("Shop Data", products);
   // Sending the HTML Response
   // res.sendFile(path.join(rootDir, "views", "shop.html"));
-  Product.fetchAll()
+  Product.find()
     .then((products) => {
       // Sending the data through templating engine
       // Will use the pug templating engine since we have set that engine in app.js
@@ -52,7 +53,7 @@ exports.getIndex = (req, res, next) => {
   // Sending the HTML Response
   // res.sendFile(path.join(rootDir, "views", "shop.html"));
 
-  Product.fetchAll()
+  Product.find()
     .then((products) => {
       // Sending the data through templating engine
       // Will use the pug templating engine since we have set that engine in app.js
@@ -72,8 +73,10 @@ exports.getCart = (req, res, next) => {
   // res.sendFile(path.join(rootDir, "views", "shop.html"));
   // Will use the pug templating engine since we have set that engine in app.js
   req.user
-    .getCart()
-    .then((products) => {
+    .populate("cart.items.productId")
+    .execPopulate()
+    .then((user) => {
+      const products = user.cart.items;
       res.render("shop/cart", {
         pageTitle: "Your Cart",
         path: "/cart",
@@ -108,7 +111,7 @@ exports.getCart = (req, res, next) => {
 exports.postCart = (req, res, next) => {
   const prodID = req.body.productId;
   Product.findById(prodID)
-    .then(product => {
+    .then((product) => {
       return req.user.addToCart(product);
     })
     .then(() => res.redirect("/cart"))
@@ -164,7 +167,24 @@ exports.postCartDeleteProduct = (req, res, next) => {
 
 exports.postOrder = (req, res, next) => {
   req.user
-    .addOrder()
+    .populate("cart.items.productId")
+    .execPopulate()
+    .then((user) => {
+      const products = user.cart.items.map((item) => ({
+        quantity: item.quantity,
+        // product: item.productId,  /* Will  Just Store the Id °/
+        product: { ...item.productId._doc },
+      }));
+      const order = new Order({
+        user: {
+          name: req.user.name,
+          userId: req.user,
+        },
+        products,
+      });
+      return order.save();
+    })
+    .then(() => req.user.clearCart()) // Clear the Cart
     .then((result) => {
       res.redirect("/orders");
     })
@@ -197,8 +217,7 @@ exports.postOrder = (req, res, next) => {
 };
 
 exports.getOrders = (req, res, next) => {
-  req.user
-    .getOrders() // While Fetching Order Fetch Product As Well
+  Order.find({ "user.userId": req.user._id })
     .then((orders) => {
       res.render("shop/orders", {
         pageTitle: "Your Orders",

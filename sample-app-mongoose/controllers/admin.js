@@ -11,17 +11,17 @@ exports.getAddProduct = (req, res, next) => {
 };
 
 exports.postAddProduct = (req, res, next) => {
+  const { user } = req;
   const { title, imageUrl, price, description } = req.body;
   // const product = new Product(null, title, imageUrl, description, price); // Null wil be treated as new Product
   // createProduct is special mixin added from Association defined User.hasMany(Products) in App.js
-  const newProduct = new Product(
+  const newProduct = new Product({
     title,
     price,
     imageUrl,
     description,
-    null,
-    req.user._id
-  );
+    userId: user
+  });
   newProduct
     .save()
     .then(() => res.redirect("/admin/products"))
@@ -69,27 +69,17 @@ exports.getEditProduct = (req, res, next) => {
 
 exports.postEditProduct = (req, res, next) => {
   const { productId, title, imageUrl, price, description } = req.body;
-  // const updatedProduct = new Product(
-  //   productId,
-  //   title,
-  //   imageUrl,
-  //   description,
-  //   price
-  // ); // These are updated Values
-  // updatedProduct.save();
-  const updatedProduct = new Product(
-    title,
-    price,
-    imageUrl,
-    description,
-    productId,
-    req.user._id
-  );
-  updatedProduct
-    .save()
-    .then(() => {
-      console.log("PORDUCT UPDATED SUCCESFULLY!!");
-      res.redirect("/admin/products");
+  Product.findById(productId)
+    .then((product) => {
+      product.title = title;
+      product.imageUrl = imageUrl;
+      product.price = price;
+      product.description = description;
+      return product.save()
+      .then(() => {
+        console.log("PORDUCT UPDATED SUCCESFULLY!!");
+        res.redirect("/admin/products");
+      })    
     })
     .catch((err) => console.log(err));
 };
@@ -103,14 +93,14 @@ exports.postDeleteProduct = (req, res, next) => {
   // })
   //   .then(() => res.redirect("/admin/products"))
   //   .catch((err) => console.log("error", err));
-  Product.deleteById(productId)
+  Product.findByIdAndRemove(productId)
     .then(() => res.redirect("/admin/products"))
     .catch((err) => console.log("error", err));
 };
 
 exports.getProducts = (req, res, next) => {
   //Product.findAll()
-  Product.fetchAll()
+  Product.find()
     .then((products) => {
       // Sending the data through templating engine
       // Will use the pug templating engine since we have set that engine in app.js

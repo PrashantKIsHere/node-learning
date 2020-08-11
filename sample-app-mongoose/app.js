@@ -3,8 +3,7 @@ const bodyParser = require("body-parser");
 const path = require("path");
 
 const rootDir = require("./util/path");
-const database = require("./util/database");
-const mongoConnect = database.mongoConnect;
+const mongoConnect = require("./util/database");
 const app = express();
 
 const adminRoutes = require("./routes/admin");
@@ -33,10 +32,10 @@ app.use(express.static(path.join(rootDir, "public")));
 // USING THE USER OBJECT IN ALL REQUEST
 // THIS SHOULD COME FIRST SO IT FUNNER THROUGH OTHER MIDDLEWARES
 app.use((req, res, next) => {
-  User.findById("5f0abec379c706b97f88c6ce")
+  User.findById("5f2452cd3968a0494c4f2a26")
     .then((user) => {
       // Sequelize Object (Not a Javascript object)
-      req.user = new User(user.name, user.email, user.cart, user._id);
+      req.user = user
       next(); // Funnel Through
     })
     .catch((err) => console.log(err));
@@ -48,7 +47,24 @@ app.use(shopRoutes);
 
 app.use(errorController.get404);
 
-mongoConnect(() => {
-  // Start the Express Server Once Database is Initialized
-  app.listen(3000);
-});
+mongoConnect()
+  .then(() => {
+    // Start the Express Server Once Database is Initialized
+    console.log("Mongo DB Connected Via Mongoose");
+    User.findOne().then((user) => {
+      if (!user) {
+        const user = new User({
+          name: "Prashant",
+          email: "Prashant@test.com",
+          cart: {
+            items: [],
+          },
+        });
+        user.save();
+      }
+    });
+    app.listen(3000);
+  })
+  .catch(() => {
+    console.log("Error While Connecting MongoDB Via Mongoose!!!");
+  });
